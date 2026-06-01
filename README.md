@@ -1,4 +1,6 @@
-# Local n8n WhatsApp to Codex KAM Workflow
+# n8n-workflow
+
+## Local n8n WhatsApp to Codex KAM Workflow
 
 This project runs a local workflow that listens for selected WhatsApp group messages, forwards them into n8n, and asks the local authenticated Codex CLI to process them as KAM intelligence.
 
