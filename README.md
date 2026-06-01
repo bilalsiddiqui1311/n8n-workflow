@@ -97,6 +97,16 @@ The n8n workflow payload builder lives in:
 n8n/workflows/kam-whatsapp-group-intake.json
 ```
 
+## Property Dealer Branch
+
+The `Property-dealer` branch adds a second workflow:
+
+```text
+n8n/workflows/property-dealer-excel-outreach.json
+```
+
+It reads contacts from `property-dealer/contacts.xlsx`, sends WhatsApp messages through the local bridge, and sends emails through a Gmail node after you attach Gmail OAuth2 credentials in n8n.
+
 ## Stop
 
 ```bash

@@ -15,9 +15,13 @@ services:
       KAM_INTAKE_SECRET: "${KAM_INTAKE_SECRET}"
       KAM_RUNNER_TOKEN: "${KAM_RUNNER_TOKEN}"
       CODEX_RUNNER_URL: "${CODEX_RUNNER_URL:-http://host.docker.internal:4777/run}"
+      PROPERTY_CONTACTS_FILE: "${PROPERTY_CONTACTS_FILE:-/files/property-dealer/contacts.xlsx}"
+      PROPERTY_WHATSAPP_SEND_URL: "http://whatsapp-bridge:3000/send"
+      PROPERTY_WHATSAPP_SEND_TOKEN: "${PROPERTY_WHATSAPP_SEND_TOKEN:-${WHATSAPP_SEND_TOKEN:-${KAM_INTAKE_SECRET}}}"
     volumes:
       - n8n-data:/home/node/.n8n
       - ./n8n/workflows:/workflows:ro
+      - ./property-dealer:/files/property-dealer:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -36,6 +40,7 @@ services:
       GROUP_ID_FILTER: "${WHATSAPP_GROUP_ID_FILTER:-}"
       GROUP_NAME_FILTER: "${WHATSAPP_GROUP_NAME_FILTER:-}"
       COMMAND_PREFIX: "${WHATSAPP_COMMAND_PREFIX:-#kam}"
+      WHATSAPP_SEND_TOKEN: "${WHATSAPP_SEND_TOKEN:-${KAM_INTAKE_SECRET}}"
       BRIDGE_PORT: "3000"
     volumes:
       - whatsapp-bridge-data:/data

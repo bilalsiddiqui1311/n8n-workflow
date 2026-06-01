@@ -7,4 +7,7 @@ whatsapp-bridge-data/
 n8n-data/
 .runtime/
 .logs/
+property-dealer/*.xlsx
+property-dealer/*.xls
+property-dealer/*.csv
 *.log

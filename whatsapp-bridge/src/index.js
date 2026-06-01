@@ -9,6 +9,7 @@ const { Client, LocalAuth } = pkg;
 const port = Number(process.env.BRIDGE_PORT || 3000);
 const webhookUrl = process.env.N8N_WEBHOOK_URL || "http://n8n:5678/webhook/whatsapp-group-intake";
 const intakeSecret = process.env.KAM_INTAKE_SECRET || "";
+const whatsappSendToken = process.env.WHATSAPP_SEND_TOKEN || intakeSecret;
 const groupIdFilter = (process.env.GROUP_ID_FILTER || "").trim();
 const groupNameFilter = (process.env.GROUP_NAME_FILTER || "").trim().toLowerCase();
 const commandPrefix = process.env.COMMAND_PREFIX ?? "#kam";
@@ -49,6 +50,45 @@ function stripPrefix(text) {
 function safeJson(res, statusCode, payload) {
   res.writeHead(statusCode, { "content-type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(payload, null, 2));
+}
+
+function readJsonBody(req, limitBytes = 256 * 1024) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.setEncoding("utf8");
+    req.on("data", (chunk) => {
+      body += chunk;
+      if (body.length > limitBytes) {
+        reject(new Error("Request body is too large"));
+        req.destroy();
+      }
+    });
+    req.on("end", () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch (error) {
+        reject(new Error(`Invalid JSON body: ${error.message}`));
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+function authorizedSend(req) {
+  if (!whatsappSendToken) return false;
+  const auth = req.headers.authorization || "";
+  const headerToken = req.headers["x-whatsapp-send-token"] || "";
+  return auth === `Bearer ${whatsappSendToken}` || headerToken === whatsappSendToken;
+}
+
+function normalizeWhatsAppRecipient(body) {
+  const explicitId = String(body.chatId || body.contactId || "").trim();
+  if (explicitId) return explicitId;
+
+  const rawPhone = String(body.phone || body.number || "").trim();
+  const digits = rawPhone.replace(/[^\d]/g, "");
+  if (!digits) return "";
+  return `${digits}@c.us`;
 }
 
 async function refreshGroups(client) {
@@ -175,6 +215,31 @@ client.on("message", async (message) => {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+
+  if (url.pathname === "/send" && req.method === "POST") {
+    if (!authorizedSend(req)) return safeJson(res, 401, { ok: false, error: "Unauthorized" });
+    if (!ready) return safeJson(res, 503, { ok: false, error: "WhatsApp is not ready. Scan /qr first." });
+
+    try {
+      const body = await readJsonBody(req);
+      const chatId = normalizeWhatsAppRecipient(body);
+      const message = String(body.message || body.text || "").trim();
+
+      if (!chatId) return safeJson(res, 400, { ok: false, error: "Missing phone, number, contactId, or chatId" });
+      if (!message) return safeJson(res, 400, { ok: false, error: "Missing message text" });
+
+      const result = await client.sendMessage(chatId, message);
+      return safeJson(res, 200, {
+        ok: true,
+        chatId,
+        messageId: result?.id?._serialized || "",
+        sentAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      lastError = error.message;
+      return safeJson(res, 500, { ok: false, error: error.message });
+    }
+  }
 
   if (url.pathname === "/health") {
     return safeJson(res, 200, { ok: true, ready, lastError, lastForwardedAt });

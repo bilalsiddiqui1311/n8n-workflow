@@ -1,0 +1,226 @@
+{
+  "name": "Property Dealer Excel Outreach",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "Manual_Trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "filePath": "={{$env.PROPERTY_CONTACTS_FILE || '/files/property-dealer/contacts.xlsx'}}",
+        "dataPropertyName": "data"
+      },
+      "id": "Read_Contact_Excel",
+      "name": "Read Contact Excel",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "fromFile",
+        "binaryPropertyName": "data",
+        "fileFormat": "autodetect",
+        "options": {
+          "headerRow": true,
+          "includeEmptyCells": false,
+          "readAsString": true
+        }
+      },
+      "id": "Extract_Excel_Rows",
+      "name": "Extract Excel Rows",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 2,
+      "position": [
+        -520,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const falseValues = new Set(['no', 'false', '0', 'skip', 'n']);\n\nfunction normalizeKey(key) {\n  return String(key || '')\n    .trim()\n    .toLowerCase()\n    .replace(/[^a-z0-9]+/g, '_')\n    .replace(/^_+|_+$/g, '');\n}\n\nfunction pick(row, keys) {\n  const normalized = Object.fromEntries(Object.entries(row).map(([key, value]) => [normalizeKey(key), value]));\n  for (const key of keys) {\n    const value = normalized[normalizeKey(key)];\n    if (value !== undefined && value !== null && String(value).trim() !== '') return String(value).trim();\n  }\n  return '';\n}\n\nfunction channelEnabled(value, fallback) {\n  if (value === undefined || value === null || String(value).trim() === '') return fallback;\n  return !falseValues.has(String(value).trim().toLowerCase());\n}\n\nfunction escapeHtml(value) {\n  return String(value || '')\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .replace(/\"/g, '&quot;');\n}\n\nfunction cleanPhone(value) {\n  return String(value || '').replace(/[^\\d]/g, '');\n}\n\nconst output = [];\n\nfor (const item of $input.all()) {\n  const row = item.json;\n  const name = pick(row, ['name', 'client_name', 'full_name', 'contact_name']);\n  const firstName = name.split(/\\s+/).filter(Boolean)[0] || 'there';\n  const phoneRaw = pick(row, ['phone', 'mobile', 'number', 'contact_number', 'whatsapp', 'whatsapp_number']);\n  const phone = cleanPhone(phoneRaw);\n  const email = pick(row, ['email', 'email_address', 'gmail']);\n  const propertyType = pick(row, ['property_type', 'property', 'interest', 'requirement']) || 'property';\n  const location = pick(row, ['location', 'area', 'city', 'preferred_location']);\n  const budget = pick(row, ['budget', 'price_range', 'range']);\n  const notes = pick(row, ['notes', 'remarks', 'comments']);\n\n  const defaultWhatsApp = [\n    `Hi ${firstName}, this is a quick follow-up regarding your ${propertyType} requirement${location ? ` in ${location}` : ''}.`,\n    budget ? `I noted your budget as ${budget}.` : '',\n    'Please let me know a good time to share suitable options.'\n  ].filter(Boolean).join(' ');\n\n  const defaultSubject = `Property options${location ? ` in ${location}` : ''}`;\n  const defaultEmail = [\n    `<p>Hi ${escapeHtml(firstName)},</p>`,\n    `<p>I am following up regarding your ${escapeHtml(propertyType)} requirement${location ? ` in ${escapeHtml(location)}` : ''}${budget ? ` with budget ${escapeHtml(budget)}` : ''}.</p>`,\n    notes ? `<p>Notes: ${escapeHtml(notes)}</p>` : '',\n    '<p>Please reply with a convenient time and I will share suitable options.</p>',\n    '<p>Regards,<br>Property Team</p>'\n  ].filter(Boolean).join('\\n');\n\n  const whatsappMessage = pick(row, ['whatsapp_message', 'whatsapp_text', 'message']) || defaultWhatsApp;\n  const emailSubject = pick(row, ['email_subject', 'subject']) || defaultSubject;\n  const emailHtml = pick(row, ['email_body', 'email_html', 'body']) || defaultEmail;\n  const sendWhatsapp = channelEnabled(pick(row, ['send_whatsapp', 'whatsapp_enabled']), Boolean(phone));\n  const sendEmail = channelEnabled(pick(row, ['send_email', 'email_enabled']), Boolean(email));\n\n  if (!sendWhatsapp && !sendEmail) continue;\n\n  output.push({\n    json: {\n      name,\n      firstName,\n      phoneRaw,\n      phone,\n      email,\n      propertyType,\n      location,\n      budget,\n      notes,\n      whatsappMessage,\n      emailSubject,\n      emailHtml,\n      sendWhatsapp: sendWhatsapp && Boolean(phone),\n      sendEmail: sendEmail && Boolean(email),\n      sourceRow: row\n    }\n  });\n}\n\nreturn output;"
+      },
+      "id": "Prepare_Outreach",
+      "name": "Prepare Outreach",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -280,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().filter((item) => item.json.sendWhatsapp);"
+      },
+      "id": "Filter_WhatsApp",
+      "name": "Filter WhatsApp Contacts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.PROPERTY_WHATSAPP_SEND_URL || 'http://127.0.0.1:3001/send'}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.PROPERTY_WHATSAPP_SEND_TOKEN || $env.WHATSAPP_SEND_TOKEN || $env.KAM_INTAKE_SECRET}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $json.phone, message: $json.whatsappMessage, contactName: $json.name }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "Send_WhatsApp_Message",
+      "name": "Send WhatsApp Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        -120
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().filter((item) => item.json.sendEmail);"
+      },
+      "id": "Filter_Email",
+      "name": "Filter Email Contacts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{$json.email}}",
+        "subject": "={{$json.emailSubject}}",
+        "emailType": "html",
+        "message": "={{$json.emailHtml}}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "Send_Gmail_Email",
+      "name": "Send Gmail Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        140
+      ],
+      "continueOnFail": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Contact Excel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Contact Excel": {
+      "main": [
+        [
+          {
+            "node": "Extract Excel Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Excel Rows": {
+      "main": [
+        [
+          {
+            "node": "Prepare Outreach",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Outreach": {
+      "main": [
+        [
+          {
+            "node": "Filter WhatsApp Contacts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filter Email Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter WhatsApp Contacts": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Email Contacts": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c8fa7b12-7aa9-4f8a-a271-e3998e888891",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "id": "PropertyDealerExcelOutreach",
+  "tags": []
+}
