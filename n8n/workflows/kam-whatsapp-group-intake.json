@@ -1,0 +1,125 @@
+{
+  "name": "KAM WhatsApp Group Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-group-intake",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "Webhook_WhatsApp_Group_Intake",
+      "name": "WhatsApp Group Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -720,
+        0
+      ],
+      "webhookId": "kam-whatsapp-group-intake"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\nconst headers = input.headers || {};\nconst expectedSecret = $env.KAM_INTAKE_SECRET || '';\nconst receivedSecret = headers['x-kam-intake-secret'] || headers['X-Kam-Intake-Secret'] || headers['X-KAM-Intake-Secret'] || '';\n\nif (expectedSecret && receivedSecret !== expectedSecret) {\n  throw new Error('Invalid KAM intake secret');\n}\n\nconst groupName = body.group?.name || 'Unknown group';\nconst senderName = body.sender?.name || body.sender?.number || body.sender?.id || 'Unknown sender';\nconst messageText = body.message?.text || body.message?.rawText || '';\n\nconst kamPrompt = [\n  'KAM Intelligence Chat should process this WhatsApp group message.',\n  '',\n  `Group: ${groupName}`,\n  `Sender: ${senderName}`,\n  `Message: ${messageText}`,\n  '',\n  'Return concise KAM intelligence, risks, actions, and a draft reply if useful.'\n].join('\\n');\n\nreturn [{\n  json: {\n    ...body,\n    kamPrompt,\n    n8nReceivedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "Build_KAM_Payload",
+      "name": "Build KAM Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.CODEX_RUNNER_URL || 'http://host.docker.internal:4777/run'}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.KAM_RUNNER_TOKEN}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "Run_Codex_KAM",
+      "name": "Run Codex KAM Intelligence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "Respond_To_Bridge",
+      "name": "Respond to WhatsApp Bridge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        40,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "WhatsApp Group Webhook": {
+      "main": [
+        [
+          {
+            "node": "Build KAM Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build KAM Payload": {
+      "main": [
+        [
+          {
+            "node": "Run Codex KAM Intelligence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Codex KAM Intelligence": {
+      "main": [
+        [
+          {
+            "node": "Respond to WhatsApp Bridge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2b313ee1-a48a-41df-9058-1cb727a04e2f",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "KAMWhatsAppGroupIntake",
+  "tags": []
+}

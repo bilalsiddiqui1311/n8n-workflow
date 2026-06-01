@@ -1,0 +1,45 @@
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    environment:
+      TZ: "${TZ:-Asia/Karachi}"
+      GENERIC_TIMEZONE: "${TZ:-Asia/Karachi}"
+      N8N_ENCRYPTION_KEY: "${N8N_ENCRYPTION_KEY}"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      N8N_BLOCK_RUNNER_ENV_ACCESS: "false"
+      KAM_INTAKE_SECRET: "${KAM_INTAKE_SECRET}"
+      KAM_RUNNER_TOKEN: "${KAM_RUNNER_TOKEN}"
+      CODEX_RUNNER_URL: "${CODEX_RUNNER_URL:-http://host.docker.internal:4777/run}"
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ./n8n/workflows:/workflows:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  whatsapp-bridge:
+    build:
+      context: ./whatsapp-bridge
+    restart: unless-stopped
+    depends_on:
+      - n8n
+    ports:
+      - "${WHATSAPP_BRIDGE_PORT:-3001}:3000"
+    environment:
+      TZ: "${TZ:-Asia/Karachi}"
+      N8N_WEBHOOK_URL: "http://n8n:5678/webhook/whatsapp-group-intake"
+      KAM_INTAKE_SECRET: "${KAM_INTAKE_SECRET}"
+      GROUP_ID_FILTER: "${WHATSAPP_GROUP_ID_FILTER:-}"
+      GROUP_NAME_FILTER: "${WHATSAPP_GROUP_NAME_FILTER:-}"
+      COMMAND_PREFIX: "${WHATSAPP_COMMAND_PREFIX:-#kam}"
+      BRIDGE_PORT: "3000"
+    volumes:
+      - whatsapp-bridge-data:/data
+
+volumes:
+  n8n-data:
+  whatsapp-bridge-data:

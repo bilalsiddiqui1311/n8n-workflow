@@ -1,0 +1,10 @@
+.env
+.DS_Store
+node_modules/
+kam-workspace/inbox/
+kam-workspace/results/
+whatsapp-bridge-data/
+n8n-data/
+.runtime/
+.logs/
+*.log
