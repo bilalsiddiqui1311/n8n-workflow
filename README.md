@@ -99,13 +99,13 @@ n8n/workflows/kam-whatsapp-group-intake.json
 
 ## Property Dealer Branch
 
-The `Property-dealer` branch adds a second workflow:
+The `Property-dealer` branch adds a standalone outreach app:
 
 ```text
-n8n/workflows/property-dealer-excel-outreach.json
+property-dealer/
 ```
 
-It reads contacts from `property-dealer/contacts.xlsx`, sends WhatsApp messages through the local bridge, and sends emails through a Gmail node after you attach Gmail OAuth2 credentials in n8n.
+It lets a user upload an Excel/CSV file, enter a WhatsApp message and email message, then send to the uploaded contacts. The app runs at `http://localhost:4040` when started with `./scripts/start-screen-local.sh`.
 
 ## Stop
 

@@ -1,39 +1,57 @@
-# Property Dealer Contact Outreach
+# Property Dealer Outreach App
 
-This branch adds an n8n workflow for property-client outreach.
+This is a standalone local app for property-client outreach.
 
-## Contact File
+Open the app, upload an Excel/CSV contact sheet, type the WhatsApp message and email message, then run a dry run or live campaign.
 
-Put the contact workbook at:
+## Start
 
-```text
-property-dealer/contacts.xlsx
+```bash
+./scripts/start-screen-local.sh
 ```
 
-The workflow reads the first sheet. Recommended columns:
+Open:
 
 ```text
-name, phone, email, property_type, location, budget, notes, whatsapp_message, email_subject, email_body, send_whatsapp, send_email
+http://localhost:4040
 ```
 
-Only `name`, `phone`, and/or `email` are required. The workflow will generate a default WhatsApp message and email if the custom message columns are empty.
+## Contact Sheet
 
-Use `send_whatsapp` or `send_email` with `no`, `false`, `0`, or `skip` to disable a channel for a row.
+The first sheet is read. Recommended columns:
 
-## n8n Credentials
+```text
+name, phone, email, property_type, location, budget, notes
+```
 
-Before running the Gmail branch, open the `Property Dealer Excel Outreach` workflow in n8n and attach your Gmail OAuth2 credential to the Gmail node.
+Only `phone` is needed for WhatsApp and only `email` is needed for email. Template fields can use any column header:
 
-WhatsApp sending uses the local WhatsApp bridge `/send` endpoint. You must scan the WhatsApp QR first:
+```text
+Hi {{firstName}}, I saw your interest in {{property_type}} around {{location}}.
+```
+
+Built-in fields:
+
+```text
+{{name}}, {{firstName}}, {{phone}}, {{email}}
+```
+
+## WhatsApp
+
+WhatsApp sending uses the local WhatsApp bridge. Scan the QR first:
 
 ```text
 http://localhost:3001/qr
 ```
 
-## Import
+## Gmail
 
-```bash
-./scripts/import-property-dealer-workflow-host.sh
+Email sending uses Gmail SMTP with an app password. Set these in `.env`:
+
+```text
+GMAIL_USER=your-gmail-address@gmail.com
+GMAIL_APP_PASSWORD=your-gmail-app-password
+GMAIL_FROM_NAME=Property Team
 ```
 
-Then run the workflow manually from n8n.
+Keep `Dry Run` enabled until the preview looks right.

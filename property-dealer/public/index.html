@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Property Dealer Outreach</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>Property Dealer Outreach</h1>
+          <p id="serviceStatus">Checking services...</p>
+        </div>
+        <a class="quiet-link" href="/api/health" target="_blank" rel="noreferrer">Service Status</a>
+      </header>
+
+      <section class="workspace">
+        <form id="campaignForm" class="panel">
+          <div class="field-grid">
+            <label class="file-field">
+              <span>Contact Sheet</span>
+              <input id="contacts" name="contacts" type="file" accept=".xlsx,.xls,.csv" required>
+            </label>
+
+            <label>
+              <span>Delay Between Sends</span>
+              <input name="delayMs" type="number" min="0" max="10000" step="100" value="500">
+            </label>
+          </div>
+
+          <div class="toggles">
+            <label><input name="sendWhatsapp" type="checkbox" checked> WhatsApp</label>
+            <label><input name="sendEmail" type="checkbox" checked> Email</label>
+            <label><input name="dryRun" type="checkbox" checked> Dry Run</label>
+          </div>
+
+          <label>
+            <span>WhatsApp Message</span>
+            <textarea name="whatsappMessage" rows="5" required>Hi {{firstName}}, this is a quick follow-up regarding your property requirement. Please let me know a good time to share suitable options.</textarea>
+          </label>
+
+          <div class="field-grid">
+            <label>
+              <span>Email Subject</span>
+              <input name="emailSubject" type="text" value="Property options for you" required>
+            </label>
+          </div>
+
+          <label>
+            <span>Email Body</span>
+            <textarea name="emailBody" rows="7" required>Hi {{firstName}},
+
+I am following up regarding your property requirement.
+
+Please reply with a convenient time and I will share suitable options.
+
+Regards,
+Property Team</textarea>
+          </label>
+
+          <div class="template-row">
+            <span>Template fields: {{name}}, {{firstName}}, {{phone}}, {{email}}, plus any Excel column header.</span>
+          </div>
+
+          <div class="actions">
+            <button type="submit">Run Campaign</button>
+          </div>
+        </form>
+
+        <section class="results-panel">
+          <div class="results-head">
+            <h2>Results</h2>
+            <span id="runStatus">No run yet</span>
+          </div>
+          <div id="summary" class="summary-grid"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Row</th>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>WhatsApp</th>
+                  <th>Email</th>
+                  <th>Errors</th>
+                </tr>
+              </thead>
+              <tbody id="resultsBody">
+                <tr><td colspan="7" class="empty">Upload a sheet and run a campaign.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
